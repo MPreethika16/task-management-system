@@ -239,17 +239,17 @@ These features are intentionally excluded because they are outside the assignmen
 
 The project is ready for submission when:
 
-* [ ] Signup and login work end to end
-* [ ] Protected APIs reject unauthenticated requests
-* [ ] Passwords are stored securely
-* [ ] Users can create, view, edit, complete, and delete tasks
-* [ ] Users cannot access another user's tasks
-* [ ] Search, status filtering, and priority filtering work
-* [ ] Pagination and required sorting work
-* [ ] Analytics show total, completed, pending, and completion percentage
-* [ ] Empty, loading, validation, and API error states are handled
-* [ ] The application is usable on desktop and mobile
-* [ ] No secrets are committed to Git
-* [ ] README explains setup, API endpoints, and important design decisions
+* [x] Signup and login work end to end
+* [x] Protected APIs reject unauthenticated requests
+* [x] Passwords are stored securely
+* [x] Users can create, view, edit, complete, and delete tasks
+* [x] Users cannot access another user's tasks
+* [x] Search, status filtering, and priority filtering work
+* [x] Pagination and required sorting work
+* [x] Analytics show total, completed, pending, and completion percentage
+* [x] Empty, loading, validation, and API error states are handled
+* [x] The application is usable on desktop and mobile
+* [x] No secrets are committed to Git
+* [x] README explains setup, API endpoints, and important design decisions
 * [ ] Frontend and backend are available in the public repository
 * [ ] A final end-to-end smoke test has been completed before submission
