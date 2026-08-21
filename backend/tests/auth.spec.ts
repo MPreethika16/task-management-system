@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 import app from '../src/app';
