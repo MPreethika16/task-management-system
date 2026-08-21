@@ -1,13 +1,12 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { Task } from '../models/Task';
-
-const isValidObjectId = (id: string): boolean => mongoose.Types.ObjectId.isValid(id);
+import { isValidObjectId } from '../utils/isValidObjectId';
 
 const VALID_STATUSES = ['Todo', 'In Progress', 'Done'];
 const VALID_PRIORITIES = ['Low', 'Medium', 'High'];
 
-export const createTask = async (req: Request, res: Response): Promise<void> => {
+export const createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { title, description, status, priority, dueDate } = req.body;
     const userId = req.userId;
@@ -38,11 +37,11 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 
     res.status(201).json({ success: true, data: task });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const getTasks = async (req: Request, res: Response): Promise<void> => {
+export const getTasks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.userId;
     const { search, status, priority, page, limit, sort, order } = req.query;
@@ -140,11 +139,11 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const getTask = async (req: Request, res: Response): Promise<void> => {
+export const getTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -163,11 +162,11 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({ success: true, data: task });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const updateTask = async (req: Request, res: Response): Promise<void> => {
+export const updateTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -209,11 +208,11 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 
     res.status(200).json({ success: true, data: task });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const deleteTask = async (req: Request, res: Response): Promise<void> => {
+export const deleteTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -232,11 +231,11 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
 
     res.status(200).json({ success: true, data: {} });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateTaskStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.userId;
@@ -270,11 +269,11 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json({ success: true, data: task });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };
 
-export const getTaskStats = async (req: Request, res: Response): Promise<void> => {
+export const getTaskStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.userId;
 
@@ -316,6 +315,6 @@ export const getTaskStats = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'Server error' });
+    next(error);
   }
 };

@@ -72,7 +72,7 @@ describe('Auth API', () => {
         password: 'password123',
       });
 
-      expect(response.status).toBe(500); // Mongoose validation error
+      expect(response.status).toBe(400); // Mongoose validation error
       expect(response.body.success).toBe(false);
     });
   });
