@@ -273,3 +273,49 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
     res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
+
+export const getTaskStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+
+    const stats = await Task.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'Done'] }, 1, 0] },
+          },
+          pending: {
+            $sum: { $cond: [{ $ne: ['$status', 'Done'] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let completionPercentage = 0;
+
+    if (stats.length > 0) {
+      total = stats[0].total;
+      completed = stats[0].completed;
+      pending = stats[0].pending;
+      completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total,
+        completed,
+        pending,
+        completionPercentage,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
