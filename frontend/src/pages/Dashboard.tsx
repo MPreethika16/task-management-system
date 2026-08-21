@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useDebounce } from '../hooks/useDebounce';
-import type { Task, TaskStatus, TaskPriority, Pagination as PaginationType } from '../types';
-import { getTasks, deleteTask } from '../services/taskService';
+import type { Task, TaskStatus, TaskPriority, Pagination as PaginationType, TaskStats } from '../types';
+import { getTasks, deleteTask, getTaskStats } from '../services/taskService';
 import { TaskItem } from '../components/TaskItem';
 import { TaskForm } from '../components/TaskForm';
 import { Pagination } from '../components/Pagination';
@@ -32,6 +32,24 @@ export const Dashboard: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
+  // Stats state
+  const [stats, setStats] = useState<TaskStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsError(false);
+      const data = await getTaskStats();
+      setStats(data);
+    } catch (err) {
+      console.error('Failed to fetch stats', err);
+      setStatsError(true);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   const fetchTasks = useCallback(async (currentPage: number) => {
     try {
       setLoading(true);
@@ -55,7 +73,12 @@ export const Dashboard: React.FC = () => {
     }
   }, [debouncedSearch, status, priority, sort, order, limit]);
 
-  // Refetch when filters or page change
+  // Initial fetch for stats
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Refetch tasks when filters or page change
   useEffect(() => {
     fetchTasks(page);
   }, [fetchTasks, page]);
@@ -74,6 +97,7 @@ export const Dashboard: React.FC = () => {
       } else {
         fetchTasks(page);
       }
+      fetchStats();
     } catch (err) {
       console.error('Failed to delete task', err);
       alert('Failed to delete task.');
@@ -93,6 +117,7 @@ export const Dashboard: React.FC = () => {
   const handleFormSuccess = () => {
     setIsFormOpen(false);
     fetchTasks(page);
+    fetchStats();
   };
 
   return (
@@ -111,6 +136,35 @@ export const Dashboard: React.FC = () => {
       </header>
 
       <main className="dashboard-main">
+        
+        {/* Stats Section */}
+        <section className="stats-container">
+          {statsLoading ? (
+            <div className="stats-loading">Loading analytics...</div>
+          ) : statsError ? (
+            <div className="stats-error">Analytics unavailable</div>
+          ) : stats ? (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-label">Total Tasks</div>
+                <div className="stat-value">{stats.total}</div>
+              </div>
+              <div className="stat-card stat-completed">
+                <div className="stat-label">Completed</div>
+                <div className="stat-value">{stats.completed}</div>
+              </div>
+              <div className="stat-card stat-pending">
+                <div className="stat-label">Pending</div>
+                <div className="stat-value">{stats.pending}</div>
+              </div>
+              <div className="stat-card stat-completion">
+                <div className="stat-label">Completion</div>
+                <div className="stat-value">{stats.completionPercentage}%</div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
         <div className="controls-bar">
           <div className="search-box">
             <Search size={20} className="search-icon" />
@@ -192,7 +246,7 @@ export const Dashboard: React.FC = () => {
                   task={task}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  onStatusChange={() => fetchTasks(page)}
+                  onStatusChange={() => { fetchTasks(page); fetchStats(); }}
                 />
               ))}
             </div>

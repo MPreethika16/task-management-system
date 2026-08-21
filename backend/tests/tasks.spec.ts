@@ -446,4 +446,108 @@ describe('Tasks API', () => {
       });
     });
   });
+
+  describe('GET /api/tasks/stats', () => {
+    it('returns all zeros for a user with no tasks', async () => {
+      const response = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual({
+        total: 0,
+        completed: 0,
+        pending: 0,
+        completionPercentage: 0,
+      });
+    });
+
+    it('returns correct stats for mixed task statuses', async () => {
+      await Task.create([
+        { user: userAId, title: 'T1', description: 'd', dueDate: new Date(), status: 'Todo' },
+        { user: userAId, title: 'T2', description: 'd', dueDate: new Date(), status: 'In Progress' },
+        { user: userAId, title: 'T3', description: 'd', dueDate: new Date(), status: 'Done' },
+        { user: userAId, title: 'T4', description: 'd', dueDate: new Date(), status: 'Done' },
+      ]);
+
+      const response = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual({
+        total: 4,
+        completed: 2,
+        pending: 2,
+        completionPercentage: 50,
+      });
+    });
+
+    it('returns 100% when all tasks are completed', async () => {
+      await Task.create([
+        { user: userAId, title: 'T1', description: 'd', dueDate: new Date(), status: 'Done' },
+      ]);
+
+      const response = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual({
+        total: 1,
+        completed: 1,
+        pending: 0,
+        completionPercentage: 100,
+      });
+    });
+
+    it('returns 0% when no tasks are completed', async () => {
+      await Task.create([
+        { user: userAId, title: 'T1', description: 'd', dueDate: new Date(), status: 'In Progress' },
+      ]);
+
+      const response = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual({
+        total: 1,
+        completed: 0,
+        pending: 1,
+        completionPercentage: 0,
+      });
+    });
+
+    it('isolates user stats', async () => {
+      // User A has 1 Done task
+      await Task.create([
+        { user: userAId, title: 'T1', description: 'd', dueDate: new Date(), status: 'Done' },
+      ]);
+      // User B has 2 Todo tasks
+      await Task.create([
+        { user: userBId, title: 'T2', description: 'd', dueDate: new Date(), status: 'Todo' },
+        { user: userBId, title: 'T3', description: 'd', dueDate: new Date(), status: 'Todo' },
+      ]);
+
+      const resA = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(resA.body.data.total).toBe(1);
+      expect(resA.body.data.completed).toBe(1);
+
+      const resB = await request(app)
+        .get('/api/tasks/stats')
+        .set('Authorization', `Bearer ${userBToken}`);
+
+      expect(resB.body.data.total).toBe(2);
+      expect(resB.body.data.pending).toBe(2);
+    });
+
+    it('returns 401 if unauthenticated', async () => {
+      const response = await request(app).get('/api/tasks/stats');
+      expect(response.status).toBe(401);
+    });
+  });
 });

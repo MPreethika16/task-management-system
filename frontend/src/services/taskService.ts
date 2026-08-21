@@ -1,5 +1,10 @@
 import api from './api';
-import type { ApiResponse, Task, TaskListResponse } from '../types';
+import type { ApiResponse, Task, TaskListResponse, TaskStats } from '../types';
+
+export const getTaskStats = async (): Promise<TaskStats> => {
+  const { data } = await api.get<ApiResponse<TaskStats>>('/api/tasks/stats');
+  return data.data;
+};
 
 export const getTasks = async (params: any = {}): Promise<TaskListResponse> => {
   const { data } = await api.get<ApiResponse<TaskListResponse>>('/api/tasks', { params });
