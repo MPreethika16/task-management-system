@@ -119,7 +119,6 @@ npm test
 6. **Database Indexes**: Practical compound indexes (`{ user: 1, createdAt: -1 }`, etc.) optimize the most common user-scoped queries.
 
 ## Deployment
-- **Frontend**: [Pending Deployment - Vercel recommended]
-- **Backend**: [Pending Deployment - Render recommended]
-- **Database**: [Pending Deployment - MongoDB Atlas recommended]
-- **GitHub**: [Repository Link]
+- **Frontend**: https://task-management-system-phi-gilt.vercel.app/
+- **Backend**:  https://task-management-api-x9wd.onrender.com
+- **GitHub**: https://github.com/MPreethika16/task-management-system/
