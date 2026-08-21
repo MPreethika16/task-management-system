@@ -45,8 +45,100 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
-    const tasks = await Task.find({ user: userId });
-    res.status(200).json({ success: true, data: tasks });
+    const { search, status, priority, page, limit, sort, order } = req.query;
+
+    const pageNum = page ? parseInt(page as string, 10) : 1;
+    const limitNum = limit ? parseInt(limit as string, 10) : 10;
+    if (isNaN(pageNum) || pageNum < 1) {
+      res.status(400).json({ success: false, message: 'Invalid page' });
+      return;
+    }
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      res.status(400).json({ success: false, message: 'Invalid limit' });
+      return;
+    }
+
+    if (status && !VALID_STATUSES.includes(status as string)) {
+      res.status(400).json({ success: false, message: 'Invalid status' });
+      return;
+    }
+    if (priority && !VALID_PRIORITIES.includes(priority as string)) {
+      res.status(400).json({ success: false, message: 'Invalid priority' });
+      return;
+    }
+    if (sort && !['dueDate', 'priority', 'createdAt'].includes(sort as string)) {
+      res.status(400).json({ success: false, message: 'Invalid sort field' });
+      return;
+    }
+    if (order && !['asc', 'desc'].includes(order as string)) {
+      res.status(400).json({ success: false, message: 'Invalid order' });
+      return;
+    }
+
+    const filter: any = { user: new mongoose.Types.ObjectId(userId) };
+
+    if (search) {
+      const escapedSearch = (search as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.title = { $regex: escapedSearch, $options: 'i' };
+    }
+    if (status) {
+      filter.status = status;
+    }
+    if (priority) {
+      filter.priority = priority;
+    }
+
+    const total = await Task.countDocuments(filter);
+    const totalPages = Math.ceil(total / limitNum);
+    const skip = (pageNum - 1) * limitNum;
+
+    const sortField = (sort as string) || 'createdAt';
+    const sortDir = order === 'asc' ? 1 : -1;
+
+    let tasks;
+
+    if (sortField === 'priority') {
+      const pipelineDocs = await Task.aggregate([
+        { $match: filter },
+        {
+          $addFields: {
+            priorityWeight: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$priority', 'Low'] }, then: 1 },
+                  { case: { $eq: ['$priority', 'Medium'] }, then: 2 },
+                  { case: { $eq: ['$priority', 'High'] }, then: 3 },
+                ],
+                default: 0,
+              },
+            },
+          },
+        },
+        { $sort: { priorityWeight: sortDir, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limitNum },
+        { $project: { priorityWeight: 0 } },
+      ]);
+      tasks = pipelineDocs.map((doc) => Task.hydrate(doc));
+    } else {
+      tasks = await Task.find(filter)
+        .sort({ [sortField]: sortDir, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tasks,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages,
+        },
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Server error' });
   }

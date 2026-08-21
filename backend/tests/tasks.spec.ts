@@ -133,16 +133,135 @@ describe('Tasks API', () => {
         .set('Authorization', `Bearer ${userAToken}`);
 
       expect(responseA.status).toBe(200);
-      expect(responseA.body.data.length).toBe(1);
-      expect(responseA.body.data[0]._id).toBe(taskAId);
+      expect(responseA.body.data.tasks.length).toBe(1);
+      expect(responseA.body.data.tasks[0]._id).toBe(taskAId);
 
       const responseB = await request(app)
         .get('/api/tasks')
         .set('Authorization', `Bearer ${userBToken}`);
 
       expect(responseB.status).toBe(200);
-      expect(responseB.body.data.length).toBe(1);
-      expect(responseB.body.data[0].title).toBe('User B Task');
+      expect(responseB.body.data.tasks.length).toBe(1);
+      expect(responseB.body.data.tasks[0].title).toBe('User B Task');
+    });
+  });
+
+  describe('GET /api/tasks with query parameters', () => {
+    beforeEach(async () => {
+      // Create some tasks for User A
+      const tasksToCreate = [
+        { title: 'Learn Backend', description: 'desc', status: 'Done', priority: 'High', dueDate: '2026-08-01T00:00:00Z' },
+        { title: 'Frontend Assignment', description: 'desc', status: 'In Progress', priority: 'Medium', dueDate: '2026-08-05T00:00:00Z' },
+        { title: 'Write tests', description: 'desc', status: 'Todo', priority: 'Low', dueDate: '2026-08-10T00:00:00Z' },
+        { title: 'Special (chars)*?', description: 'desc', status: 'Todo', priority: 'High', dueDate: '2026-08-15T00:00:00Z' },
+      ];
+      for (const t of tasksToCreate) {
+        await request(app).post('/api/tasks').set('Authorization', `Bearer ${userAToken}`).send(t);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      // Create a task for User B
+      await request(app).post('/api/tasks').set('Authorization', `Bearer ${userBToken}`).send({
+        title: 'User B Secret', description: 'desc', status: 'Todo', priority: 'High', dueDate: new Date().toISOString()
+      });
+    });
+
+    it('returns default pagination metadata', async () => {
+      const response = await request(app).get('/api/tasks').set('Authorization', `Bearer ${userAToken}`);
+      expect(response.status).toBe(200);
+      const { pagination, tasks } = response.body.data;
+      expect(pagination.page).toBe(1);
+      expect(pagination.limit).toBe(10);
+      expect(pagination.total).toBe(4);
+      expect(pagination.totalPages).toBe(1);
+      expect(tasks.length).toBe(4);
+    });
+
+    it('handles pagination logic correctly', async () => {
+      const page1 = await request(app).get('/api/tasks?page=1&limit=2').set('Authorization', `Bearer ${userAToken}`);
+      expect(page1.body.data.tasks.length).toBe(2);
+      expect(page1.body.data.pagination.totalPages).toBe(2);
+
+      const page2 = await request(app).get('/api/tasks?page=2&limit=2').set('Authorization', `Bearer ${userAToken}`);
+      expect(page2.body.data.tasks.length).toBe(2);
+      
+      const idsPage1 = page1.body.data.tasks.map((t: any) => t._id);
+      const idsPage2 = page2.body.data.tasks.map((t: any) => t._id);
+      const intersection = idsPage1.filter((id: string) => idsPage2.includes(id));
+      expect(intersection.length).toBe(0);
+    });
+
+    it('supports case-insensitive partial title search', async () => {
+      const res = await request(app).get('/api/tasks?search=FRONTEND').set('Authorization', `Bearer ${userAToken}`);
+      expect(res.body.data.tasks.length).toBe(1);
+      expect(res.body.data.tasks[0].title).toBe('Frontend Assignment');
+      
+      const resEscaped = await request(app).get('/api/tasks?search=(chars)*?').set('Authorization', `Bearer ${userAToken}`);
+      expect(resEscaped.body.data.tasks.length).toBe(1);
+    });
+
+    it('filters by status', async () => {
+      const res = await request(app).get('/api/tasks?status=Done').set('Authorization', `Bearer ${userAToken}`);
+      expect(res.body.data.tasks.length).toBe(1);
+      expect(res.body.data.tasks[0].status).toBe('Done');
+
+      const bad = await request(app).get('/api/tasks?status=Invalid').set('Authorization', `Bearer ${userAToken}`);
+      expect(bad.status).toBe(400);
+    });
+
+    it('filters by priority', async () => {
+      const res = await request(app).get('/api/tasks?priority=High').set('Authorization', `Bearer ${userAToken}`);
+      expect(res.body.data.tasks.length).toBe(2);
+
+      const bad = await request(app).get('/api/tasks?priority=Urgent').set('Authorization', `Bearer ${userAToken}`);
+      expect(bad.status).toBe(400);
+    });
+
+    it('supports combined search and filters', async () => {
+      const res = await request(app).get('/api/tasks?search=Backend&status=Done&priority=High').set('Authorization', `Bearer ${userAToken}`);
+      expect(res.body.data.tasks.length).toBe(1);
+      expect(res.body.data.tasks[0].title).toBe('Learn Backend');
+    });
+
+    it('sorts by dueDate ascending and descending', async () => {
+      const resAsc = await request(app).get('/api/tasks?sort=dueDate&order=asc').set('Authorization', `Bearer ${userAToken}`);
+      expect(resAsc.body.data.tasks[0].title).toBe('Learn Backend'); 
+      expect(resAsc.body.data.tasks[3].title).toBe('Special (chars)*?'); 
+      
+      const resDesc = await request(app).get('/api/tasks?sort=dueDate&order=desc').set('Authorization', `Bearer ${userAToken}`);
+      expect(resDesc.body.data.tasks[0].title).toBe('Special (chars)*?'); 
+    });
+
+    it('sorts by priority semantically (desc=High first, asc=Low first)', async () => {
+      const resDesc = await request(app).get('/api/tasks?sort=priority&order=desc').set('Authorization', `Bearer ${userAToken}`);
+      expect(resDesc.body.data.tasks[0].priority).toBe('High');
+      expect(resDesc.body.data.tasks[1].priority).toBe('High');
+      expect(resDesc.body.data.tasks[2].priority).toBe('Medium');
+      expect(resDesc.body.data.tasks[3].priority).toBe('Low');
+
+      const resAsc = await request(app).get('/api/tasks?sort=priority&order=asc').set('Authorization', `Bearer ${userAToken}`);
+      expect(resAsc.body.data.tasks[0].priority).toBe('Low');
+      expect(resAsc.body.data.tasks[1].priority).toBe('Medium');
+      expect(resAsc.body.data.tasks[2].priority).toBe('High');
+    });
+
+    it('validates query parameters', async () => {
+      const res1 = await request(app).get('/api/tasks?page=0').set('Authorization', `Bearer ${userAToken}`);
+      expect(res1.status).toBe(400);
+      const res2 = await request(app).get('/api/tasks?limit=101').set('Authorization', `Bearer ${userAToken}`);
+      expect(res2.status).toBe(400);
+      const res3 = await request(app).get('/api/tasks?sort=unknown').set('Authorization', `Bearer ${userAToken}`);
+      expect(res3.status).toBe(400);
+      const res4 = await request(app).get('/api/tasks?order=random').set('Authorization', `Bearer ${userAToken}`);
+      expect(res4.status).toBe(400);
+    });
+
+    it('never includes another users tasks in queries', async () => {
+      const res = await request(app).get('/api/tasks?search=Secret').set('Authorization', `Bearer ${userAToken}`);
+      expect(res.body.data.tasks.length).toBe(0);
+      
+      const resB = await request(app).get('/api/tasks?search=Secret').set('Authorization', `Bearer ${userBToken}`);
+      expect(resB.body.data.tasks.length).toBe(1);
     });
   });
 
