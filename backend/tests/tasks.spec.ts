@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, jest } from '@jest/globals';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app';
@@ -548,6 +548,37 @@ describe('Tasks API', () => {
     it('returns 401 if unauthenticated', async () => {
       const response = await request(app).get('/api/tasks/stats');
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Global Error Handling and Routing', () => {
+    it('returns 404 for an unknown route', async () => {
+      const response = await request(app).get('/api/unknown-route');
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        message: 'Route not found',
+      });
+    });
+
+    it('returns 500 for an unexpected server error', async () => {
+      // Mock an unexpected DB error
+      const mockFind = jest.spyOn(Task, 'find').mockImplementationOnce(() => {
+        throw new Error('Fake DB Error');
+      });
+
+      const response = await request(app)
+        .get('/api/tasks')
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        success: false,
+        message: 'Internal server error',
+      });
+
+      // Restore the mock so it doesn't affect other tests
+      mockFind.mockRestore();
     });
   });
 });
